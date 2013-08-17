@@ -10,6 +10,46 @@ import fields
 db = redis.Redis()
 
 
+class EntryManager(object):
+
+    def __init__(self):
+        self.entry = None
+
+    def set_entry(self, entry):
+        self.entry = entry
+
+    def filter(self, **kwargs):
+
+        if not set(self.entry.base_fields.keys()).issuperset(kwargs.keys()):
+            raise ValueError
+
+        queue_name = self.entry.__name__
+
+        # Make the OR filters.
+        # if the value is a list, we assume it is an OR filter
+        or_filters = [(k, v) for k,v in kwargs.iteritems() if isinstance(v, list)]
+        union_sets = []
+        
+        for name, values in or_filters:
+            kwargs.pop(name)
+            or_sets = [':'.join([queue_name, name, str(v)]) for v in values]
+            or_set = '|'.join(or_sets)
+            union_sets.append(or_set)
+            if len(or_sets) > 1:
+                db.zunionstore(or_set, or_sets)
+
+        sets = [':'.join([queue_name, name, str(value)]) for name, value in kwargs.iteritems()]
+        sets = sets + union_sets
+
+        if len(sets) == 1: 
+            return db.zrange(sets[0], 0, -1)
+        
+        filter_set = '&'.join(sets)
+        db.zinterstore(filter_set, sets)
+
+        return db.zrange(filter_set, 0, -1)
+
+
 class EntryMeta(type):
     """ The meta class for an Entry. 
     Copy overs the class level fields into an available dictionary and makes
@@ -47,10 +87,21 @@ class EntryMeta(type):
         # Push this back into the class with updated content
         setattr(entry_class, 'base_fields', base_fields)
 
+        # Get the manager for this class
+        manager = attr_dict.get('objects', None)
+        # Only create the default manager if it wasn't overloaded
+        if not manager:
+            manager = EntryManager()
+            setattr(entry_class, 'objects', manager)
+
+        manager.set_entry(entry_class)
+
         return entry_class
 
+    
 
-class BaseEntry(object):
+
+class Entry(object):
     """ The BaseEntry, overrides loads of magic method to make the interface
     awesome and allows us to save enteries with all the de-normalization magic.
     """
@@ -66,24 +117,24 @@ class BaseEntry(object):
         self._pk_field = None
 
     def __getattr__(self, name):
-        """ First check, if the attribute that we are trying to get is a field
+        """ First check if the attribute that we are trying to get is a field
         otherwise fallback to normal getattribute.
         """
         try:
             field = self.__getattribute__('fields')[name] 
         except KeyError:
-            return super(BaseEntry, self).__getattribute__(name)
+            return super(Entry, self).__getattribute__(name)
         else:
             return field.value
 
     def __setattr__(self, name, value):
-        """ First check, if we are trying to set the attribute to a field
+        """ First check if we are trying to set the attribute to a field
         otherwise fallback to the normal setattr.
         """
         try:
             field = self.__dict__['fields'][name]
         except KeyError:
-            super(BaseEntry, self).__setattr__(name, value)
+            super(Entry, self).__setattr__(name, value)
         else:
             field.value = value
 
@@ -130,39 +181,8 @@ class BaseEntry(object):
             index_queue_name = ':'.join([queue_name, name, str(field.value)])
             db.zadd(index_queue_name, key, save_time)
 
-    @classmethod
-    def filter(cls, **kwargs):
 
-        if not set(cls.base_fields.keys()).issuperset(kwargs.keys()):
-            raise ValueError
-
-        queue_name = cls.__name__
-
-        # Make the OR filters.
-        # if the value is a list, we assume it is an OR filter
-        or_filters = [(k, v) for k,v in kwargs.iteritems() if isinstance(v, list)]
-        union_sets = []
-        
-        for name, values in or_filters:
-            kwargs.pop(name)
-            or_sets = [':'.join([queue_name, name, str(v)]) for v in values]
-            or_set = '|'.join(or_sets)
-            union_sets.append(or_set)
-            if len(or_sets) > 1:
-                db.zunionstore(or_set, or_sets)
-
-        sets = [':'.join([queue_name, name, str(value)]) for name, value in kwargs.iteritems()]
-        sets = sets + union_sets
-
-        if len(sets) == 1: 
-            return db.zrange(sets[0], 0, -1)
-        
-        filter_set = '&'.join(sets)
-        db.zinterstore(filter_set, sets)
-
-        return db.zrange(filter_set, 0, -1)
-
-class Entry(BaseEntry):
+class QueueEntry(Entry):
 
     country = fields.BaseField(index=True)
     
@@ -179,15 +199,15 @@ def random_key(size):
 
 if __name__ == '__main__':
 
-    countries = [1,2,3,4]
+    countries = [1,2,3,4,5,6,7,8,9,10,11,12,13,14]
     languages = ['en', 'ar', 'fr']
     categories = ['cars', 'items', 'property', 'jobs']
     for _ in range(1000):
-        e = Entry()
+        e = QueueEntry()
         e.country = random.choice(countries)
         e.category = random.choice(categories)
         e.language = random.choice(languages)
-        e.id = random_key(8)
+        e.id = random_key(32)
         e.save()
 
-    print e.filter(country=4, language='en')
+    print QueueEntry.objects.filter(country=4, language='en')
