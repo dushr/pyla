@@ -23,11 +23,11 @@ class Job(entries.Entry):
     assigned_to = fields.BaseField(index=True)
     info = fields.BaseField(index=False)
 
-j = Job(id=1, type='create', 'assigned_to'='dush', info='testing')
+j = Job(id=1, type='create', assigned_to='dush', info='testing')
 j.save()
 ```
 
-on calling the save on that particular entry you will have following sorted
+on calling save on that particular entry you will have following sorted
 sets available in redis
 
 ```
@@ -36,7 +36,7 @@ job:type:create
 job:assigned_to:dush
 ```
 
-Then you can awesome filtering abilities.
+Then you have the following awesome filtering abilities:
 
 ``` python
 # Get all the jobs
