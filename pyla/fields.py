@@ -14,3 +14,11 @@ class BaseField(object):
     def value(self, value):
         self._value = value
     
+
+class PrimaryField(object):
+
+    def __init__(self, *args, **kwargs):
+        primary = kwargs.pop('primary', '')
+        super(BaseField, self).__init__(primary=True, *args, **kwargs)
+
+
