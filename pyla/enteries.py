@@ -11,20 +11,28 @@ db = redis.Redis()
 
 
 class EntryManager(object):
-
+    """
+    """
     def __init__(self):
+        """
+        """
         self.entry = None
 
     def set_entry(self, entry):
+        """
+        """
         self.entry = entry
 
     def filter(self, **kwargs):
-
+        """
+        """
         if not set(self.entry.base_fields.keys()).issuperset(kwargs.keys()):
+            # TODO: Raise a more appropriate error
             raise ValueError
 
         queue_name = self.entry.__name__
 
+        # TODO: Use better variable names
         # Make the OR filters.
         # if the value is a list, we assume it is an OR filter
         or_filters = [(k, v) for k,v in kwargs.iteritems() if isinstance(v, list)]
@@ -58,6 +66,8 @@ class EntryMeta(type):
     """
 
     def __new__(cls, name, bases, attr_dict):
+        """
+        """
         super_new = super(EntryMeta, cls).__new__
         # Get the parents of the class. This is going to be used to help
         # get the right inheritence.
@@ -180,34 +190,3 @@ class Entry(object):
         for name, field in index_fields:
             index_queue_name = ':'.join([queue_name, name, str(field.value)])
             db.zadd(index_queue_name, key, save_time)
-
-
-class QueueEntry(Entry):
-
-    country = fields.BaseField(index=True)
-    
-    category = fields.BaseField(index=True)
-
-    language = fields.BaseField(index=True)
-
-    id = fields.BaseField(primary=True)
-
-def random_key(size):
-    """ Generates a random key
-    """
-    return ''.join(random.choice(string.letters) for _ in range(size))
-
-if __name__ == '__main__':
-
-    countries = [1,2,3,4,5,6,7,8,9,10,11,12,13,14]
-    languages = ['en', 'ar', 'fr']
-    categories = ['cars', 'items', 'property', 'jobs']
-    for _ in range(1000):
-        e = QueueEntry()
-        e.country = random.choice(countries)
-        e.category = random.choice(categories)
-        e.language = random.choice(languages)
-        e.id = random_key(32)
-        e.save()
-
-    print QueueEntry.objects.filter(country=4, language='en')
