@@ -1,6 +1,8 @@
 pyla
 ====
 
+![Build Status](https://travis-ci.org/dushyant88/pyla.png)
+
 pyla is a redis based storage system which can filter entries based on item's
 attributes. 
 
