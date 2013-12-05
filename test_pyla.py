@@ -26,10 +26,19 @@ class TestPyla(unittest.TestCase):
         r = redis.Redis()
         r.flushall()
 
+
+    def teardown(self):
+        r = redis.Redis()
+        r.flushall()
+
+    def test_or_filter(self):
+
+        COUNT = 1000
+        
         countries = [1,2,3,4,5,6,7,8,9,10,11,12,13,14]
         languages = ['en', 'ar', 'fr']
         categories = ['cars', 'items', 'property', 'jobs']
-        for _ in range(1000):
+        for _ in range(COUNT):
             e = QueueEntry()
             e.country = random.choice(countries)
             e.category = random.choice(categories)
@@ -37,13 +46,9 @@ class TestPyla(unittest.TestCase):
             e.id = random_key(32)
             e.save()
 
-    def teardown(self):
-        r = redis.Redis()
-        r.flushall()
+        for name, params in (('country', countries), ('language', languages), ('category', categories)):
 
-    def test_filter(self):
-
-        nose.tools.assert_equals(
-            len(QueueEntry.objects.filter(language=['en', 'fr', 'ar'])),
-            1000
-        )
+            nose.tools.assert_equals(
+                len(QueueEntry.objects.filter(**dict(((name, params),)))),
+                1000
+            )
