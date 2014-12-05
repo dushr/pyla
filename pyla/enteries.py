@@ -7,7 +7,6 @@ import string
 
 import fields
 
-db = redis.Redis()
 
 
 class EntryManager(object):
@@ -37,29 +36,29 @@ class EntryManager(object):
         # if the value is a list, we assume it is an OR filter
         or_filters = [(k, v) for k,v in kwargs.iteritems() if isinstance(v, list)]
         union_sets = []
-        
+
         for name, values in or_filters:
             kwargs.pop(name)
             or_sets = [':'.join([queue_name, name, str(v)]) for v in values]
             or_set = '|'.join(or_sets)
             union_sets.append(or_set)
             if len(or_sets) > 1:
-                db.zunionstore(or_set, or_sets)
+                self.entry.db.zunionstore(or_set, or_sets)
 
         sets = [':'.join([queue_name, name, str(value)]) for name, value in kwargs.iteritems()]
         sets = sets + union_sets
 
-        if len(sets) == 1: 
-            return db.zrange(sets[0], 0, -1)
-        
+        if len(sets) == 1:
+            return self.entry.db.zrange(sets[0], 0, -1)
+
         filter_set = '&'.join(sets)
-        db.zinterstore(filter_set, sets)
+        self.entry.db.zinterstore(filter_set, sets)
 
         return db.zrange(filter_set, 0, -1)
 
 
 class EntryMeta(type):
-    """ The meta class for an Entry. 
+    """ The meta class for an Entry.
     Copy overs the class level fields into an available dictionary and makes
     sure that there atleast one and only one primary key field assigned to the
     entry
@@ -108,7 +107,7 @@ class EntryMeta(type):
 
         return entry_class
 
-    
+
 
 
 class Entry(object):
@@ -118,12 +117,14 @@ class Entry(object):
 
     __metaclass__ = EntryMeta
 
+    db = redis.Redis()
+
     def __init__(self, *args, **kwargs):
         """ Copies over the class level base_fields into instance variable
         called fields.
         """
 
-        self.fields = copy.deepcopy(self.base_fields)         
+        self.fields = copy.deepcopy(self.base_fields)
         self._pk_field = None
 
     def __getattr__(self, name):
@@ -131,7 +132,7 @@ class Entry(object):
         otherwise fallback to normal getattribute.
         """
         try:
-            field = self.__getattribute__('fields')[name] 
+            field = self.__getattribute__('fields')[name]
         except KeyError:
             return super(Entry, self).__getattribute__(name)
         else:
@@ -174,7 +175,7 @@ class Entry(object):
         fields = sorted([(n, f) for (n, f) in self.fields.iteritems() if not f.primary])
         field_entries = ['>'.join((n, str(f.value))) for n,f in fields] + [str(self.pk)]
         return ':'.join(field_entries)
-        
+
 
     def save(self):
         """ Saves the entry in a sorted set and also creates indexes for fields
@@ -183,10 +184,10 @@ class Entry(object):
         save_time = time.time()
         queue_name = self.__class__.__name__
         key = self._generate_key()
-        db.zadd(queue_name, key, save_time)    
+        self.db.zadd(queue_name, key, save_time)
 
         index_fields = [(n, f) for (n, f) in self.fields.iteritems() if f.index]
 
         for name, field in index_fields:
             index_queue_name = ':'.join([queue_name, name, str(field.value)])
-            db.zadd(index_queue_name, key, save_time)
+            self.db.zadd(index_queue_name, key, save_time)

@@ -10,6 +10,9 @@ from pyla import fields
 
 
 class QueueEntry(enteries.Entry):
+
+    db = redis.Redis(db=3)
+
     country = fields.BaseField(index=True)
     category = fields.BaseField(index=True)
     language = fields.BaseField(index=True)
@@ -23,18 +26,18 @@ def random_key(size):
 class TestPyla(unittest.TestCase):
 
     def setUp(self):
-        r = redis.Redis()
-        r.flushall()
+        r = redis.Redis(db=3)
+        r.flushdb()
 
 
     def teardown(self):
-        r = redis.Redis()
-        r.flushall()
+        r = redis.Redis(db=3)
+        r.flushdb()
 
-    def test_or_filter(self):
+    def test_orfilter(self):
 
         COUNT = 1000
-        
+
         countries = [1,2,3,4,5,6,7,8,9,10,11,12,13,14]
         languages = ['en', 'ar', 'fr']
         categories = ['cars', 'items', 'property', 'jobs']
