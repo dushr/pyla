@@ -4,7 +4,7 @@ class BaseField(object):
 
         self.index = index
         self.primary = primary
-        self._value = default  
+        self._value = default
 
     @property
     def value(self):
@@ -13,7 +13,9 @@ class BaseField(object):
     @value.setter
     def value(self, value):
         self._value = value
-    
+
+    def serialize(self):
+        return self.value
 
 class PrimaryField(object):
 

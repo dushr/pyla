@@ -34,6 +34,34 @@ class TestPyla(unittest.TestCase):
         r = redis.Redis(db=3)
         r.flushdb()
 
+    def test_serialize(self):
+
+        entry_data = {
+            'country': 10,
+            'category': 'cars',
+            'language': 'en',
+            'id': random_key(32),
+        }
+
+        queue_entry = QueueEntry(**entry_data)
+
+        self.assertDictEqual(queue_entry.serialize(), entry_data)
+
+    def test_get_with_pk(self):
+
+        pk = random_key(32)
+        entry_data = {
+            'country': 10,
+            'category': 'cars',
+            'language': 'en',
+            'id': pk,
+        }
+        queue_entry = QueueEntry(**entry_data)
+        queue_entry.save()
+
+        saved_entry = QueueEntry.objects.get(pk)
+        self.assertEqual(saved_entry.id, queue_entry.id)
+
     def test_orfilter(self):
 
         COUNT = 1000

@@ -8,7 +8,6 @@ import string
 import fields
 
 
-
 class EntryManager(object):
     """
     """
@@ -21,6 +20,11 @@ class EntryManager(object):
         """
         """
         self.entry = entry
+
+    def get(self, pk):
+        key = self.entry.generate_save_key(pk=pk)
+        data = self.entry.db.hgetall(key)
+        return self.entry(**data)
 
     def filter(self, **kwargs):
         """
@@ -54,7 +58,8 @@ class EntryManager(object):
         filter_set = '&'.join(sets)
         self.entry.db.zinterstore(filter_set, sets)
 
-        return db.zrange(filter_set, 0, -1)
+        return self.entry.db.zrange(filter_set, 0, -1)
+
 
 
 class EntryMeta(type):
@@ -127,6 +132,11 @@ class Entry(object):
         self.fields = copy.deepcopy(self.base_fields)
         self._pk_field = None
 
+        for name in self.fields:
+            value = kwargs.get(name)
+            if value:
+                setattr(self, name, value)
+
     def __getattr__(self, name):
         """ First check if the attribute that we are trying to get is a field
         otherwise fallback to normal getattribute.
@@ -149,6 +159,11 @@ class Entry(object):
         else:
             field.value = value
 
+    def serialize(self):
+        """
+        """
+        return {k: v.serialize() for k,v in self.fields.items()}
+
     @property
     def pk(self):
         """ Get the primary key value.
@@ -167,7 +182,11 @@ class Entry(object):
 
         self._pk_field.value = value
 
-    def _generate_key(self):
+    @classmethod
+    def generate_save_key(cls, pk=None):
+        return ":".join((cls.__name__, pk))
+
+    def _generate_query_key(self):
         """ generates the key that we will be storing the item with.
 
         attr_name>value:attr_name>value:primary_key
@@ -183,11 +202,12 @@ class Entry(object):
         """
         save_time = time.time()
         queue_name = self.__class__.__name__
-        key = self._generate_key()
+
+        self.db.hmset(self.generate_save_key(pk=self.pk), self.serialize())
+
+        key = self._generate_query_key()
         self.db.zadd(queue_name, key, save_time)
-
         index_fields = [(n, f) for (n, f) in self.fields.iteritems() if f.index]
-
         for name, field in index_fields:
             index_queue_name = ':'.join([queue_name, name, str(field.value)])
             self.db.zadd(index_queue_name, key, save_time)
