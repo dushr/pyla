@@ -8,6 +8,39 @@ import string
 import fields
 
 
+class EntryResultSet(object):
+
+    def __init__(self, keys, db, entry):
+        self.keys = keys
+        self.db = db
+        self.entry = entry
+
+    def _load(self, key):
+        if isinstance(key, slice):
+            keys = self.keys[key]
+            _slice = True
+        else:
+            keys = [self.keys[key]]
+            _slice = False
+        results = []
+        for k in keys:
+            k = self.entry.generate_save_key(pk=k)
+            results.append(
+                self.entry(**self.entry.db.hgetall(k))
+            )
+
+        return results if _slice else results[0]
+
+    def count(self):
+        return len(self.keys)
+
+    def __len__(self):
+        return self.count()
+
+    def __getitem__(self, key):
+        return self._load(key)
+
+
 class EntryManager(object):
     """
     """
@@ -53,12 +86,16 @@ class EntryManager(object):
         sets = sets + union_sets
 
         if len(sets) == 1:
-            return self.entry.db.zrange(sets[0], 0, -1)
+            return EntryResultSet(
+                self.entry.db.zrange(sets[0], 0, -1), self.entry.db, self.entry
+            )
 
         filter_set = '&'.join(sets)
         self.entry.db.zinterstore(filter_set, sets)
 
-        return self.entry.db.zrange(filter_set, 0, -1)
+        return EntryResultSet(
+            self.entry.db.zrange(filter_set, 0, -1), self.entry.db, self.entry
+        )
 
 
 
@@ -206,8 +243,8 @@ class Entry(object):
         self.db.hmset(self.generate_save_key(pk=self.pk), self.serialize())
 
         key = self._generate_query_key()
-        self.db.zadd(queue_name, key, save_time)
+        self.db.zadd(queue_name, self.pk, save_time)
         index_fields = [(n, f) for (n, f) in self.fields.iteritems() if f.index]
         for name, field in index_fields:
             index_queue_name = ':'.join([queue_name, name, str(field.value)])
-            self.db.zadd(index_queue_name, key, save_time)
+            self.db.zadd(index_queue_name, self.pk, save_time)
