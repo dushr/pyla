@@ -12,6 +12,7 @@ from pyla import fields
 class QueueEntry(enteries.Entry):
 
     db = redis.Redis(db=3)
+    name = 'test_queue'
 
     country = fields.BaseField(index=True)
     category = fields.BaseField(index=True)

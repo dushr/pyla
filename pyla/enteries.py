@@ -68,7 +68,7 @@ class EntryManager(object):
             # TODO: Raise a more appropriate error
             raise ValueError
 
-        queue_name = self.entry.__name__
+        queue_name = self.entry.name
 
         # TODO: Use better variable names
         # Make the OR filters.
@@ -149,6 +149,9 @@ class EntryMeta(type):
 
         manager.set_entry(entry_class)
 
+        # Set the name of the class
+        entry_class.name = entry_class.name or entry_class.__name__
+
         return entry_class
 
 
@@ -162,6 +165,8 @@ class Entry(object):
     __metaclass__ = EntryMeta
 
     db = redis.Redis()
+
+    name = None
 
     def __init__(self, *args, **kwargs):
         """ Copies over the class level base_fields into instance variable
@@ -229,7 +234,7 @@ class Entry(object):
 
     @classmethod
     def generate_save_key(cls, pk=None):
-        return ":".join((cls.__name__, pk))
+        return ":".join((cls.name, pk))
 
     def _generate_query_key(self):
         """ generates the key that we will be storing the item with.
@@ -246,7 +251,7 @@ class Entry(object):
         that have to indexed.
         """
         save_time = time.time()
-        queue_name = self.__class__.__name__
+        queue_name = self.name
 
         with self.pipeline() as p:
             p.hmset(self.generate_save_key(pk=self.pk), self.serialize())
