@@ -8,6 +8,7 @@ import string
 from contextlib import contextmanager
 
 import fields
+from exceptions import NotFound
 
 
 class EntryResultSet(object):
@@ -59,6 +60,9 @@ class EntryManager(object):
     def get(self, pk):
         key = self.entry.generate_save_key(pk=pk)
         data = self.entry.db.hgetall(key)
+        if not data:
+            raise NotFound('Entry with pk {0} not found'.format(str(pk)))
+
         return self.entry(**data)
 
     def filter(self, **kwargs):
@@ -261,3 +265,15 @@ class Entry(object):
             for name, field in index_fields:
                 index_queue_name = ':'.join([queue_name, name, str(field.value)])
                 p.zadd(index_queue_name, self.pk, save_time)
+
+    def delete(self):
+        queue_name = self.name
+
+        with self.pipeline() as p:
+            p.delete(self.generate_save_key(pk=self.pk))
+            key = self._generate_query_key()
+            p.zrem(queue_name, self.pk)
+            index_fields = [(n, f) for (n, f) in self.fields.iteritems() if f.index]
+            for name, field in index_fields:
+                index_queue_name = ':'.join([queue_name, name, str(field.value)])
+                p.zrem(index_queue_name, self.pk)

@@ -5,8 +5,7 @@ import random
 import string
 import redis
 
-from pyla import enteries
-from pyla import fields
+from pyla import enteries, fields, exceptions
 
 
 class QueueEntry(enteries.Entry):
@@ -133,3 +132,26 @@ class TestPyla(unittest.TestCase):
             )
 
         nose.tools.assert_equals(len(results), limit)
+
+    def test_delete(self):
+        pk = random_key(32)
+        entry_data = {
+            'country': 10,
+            'category': 'cars',
+            'language': 'en',
+            'id': pk,
+        }
+        queue_entry = QueueEntry(**entry_data)
+        queue_entry.save()
+
+        saved_entry = QueueEntry.objects.get(pk)
+        self.assertEqual(saved_entry.id, queue_entry.id)
+
+        queue_entry.delete()
+        nose.tools.assert_raises(exceptions.NotFound, QueueEntry.objects.get, pk)
+
+        for name, params in (('country', [10]), ('language', ['en']), ('category', ['cars'])):
+            nose.tools.assert_equals(
+                len(QueueEntry.objects.filter(**dict(((name, params),)))),
+                0
+            )
