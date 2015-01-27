@@ -1,7 +1,7 @@
 pyla
 ====
 
-![Build Status](https://travis-ci.org/dushyant88/pyla.png)
+![Build Status](https://travis-ci.org/dushyant88/pyla.png) [![Coverage Status](https://coveralls.io/repos/dushyant88/pyla/badge.svg?branch=master)](https://coveralls.io/r/dushyant88/pyla?branch=master)
 
 pyla is a redis based storage system which can filter entries based on item's
 attributes. 
