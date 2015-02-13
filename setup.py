@@ -13,7 +13,7 @@ dependency_links = []
 setup(
     name='pyla',
     url='http://github.com/dushyant88/pyla',
-    version='0.1.0',
+    version='0.1.0b',
     packages=find_packages(),
     install_requires=install_requires,
     dependency_links=dependency_links,
