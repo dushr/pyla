@@ -10,7 +10,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 install_requires = [
-    'redis==2.7.6',
+    'redis==4.4.4',
 ]
 
 dependency_links = []
